@@ -1,32 +1,32 @@
-import RPi.GPIO as gpio
-import sys
-from time import sleep
-gpio.setmode(gpio.BCM)
-dac=[26, 19, 13, 6, 5, 11, 9, 10]
-comp=4
-troyka=17
-gpio.setup(dac, gpio.OUT)
-gpio.setup(troyka,gpio.OUT, initial=gpio.HIGH)
-gpio.setup(comp, gpio.IN)
+import RPi.GPIO as GPIO
+import time
 
-def perev(a):
-    return [int (elem) for elem in bin(a)[2:].zfill(8)]
+dac = [8, 11, 7, 1, 0, 5, 12, 6]
+comp = 14
+troyka = 13
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(dac, GPIO.OUT)
+GPIO.setup(troyka, GPIO.OUT, initial=GPIO.HIGH)
+GPIO.setup(comp, GPIO.IN)
+
+def decimal12binary(value):
+    return [int(bit) for bit in bin(value)[2:].zfill(8)]
 
 def adc():
-    for i in range(256):
-        daccc=perev(i)
-        gpio.output(dac, daccc)
-        compvalue=gpio.input(comp)
-        sleep(0.05)
-        if compvalue==0:
-            return i
+    for value in range(256):
+        signal = decimal12binary(value)
+        GPIO.output(dac, signal)
+        time.sleep(0.01)
+        if GPIO.input(comp) == 1:
+            return value
+    return 255
 
 try:
     while True:
-        i=adc()
-        if i!=0:
-            print(i, '{:.2f}v'.format(3.3*i/256))
-        
+        value = adc()
+        voltage = value / 255 * 3.3
+        print("Digital value: {}, Voltage: {:.2f}V".format(value, voltage))
 finally:
-    gpio.output(dac, 0)
-    gpio.cleanup()   
+    GPIO.output(dac, 0)
+    GPIO.cleanup()
