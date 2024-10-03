@@ -1,0 +1,43 @@
+import RPi.GPIO as GPIO
+import time
+
+
+dac = [8, 11, 7, 1, 0, 5, 12, 6]  
+comparator_pin = 14 
+troyka_pin = 13  
+
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(dac, GPIO.OUT)
+
+GPIO.setup(troyka_pin, GPIO.OUT, initial=0)
+
+GPIO.setup(comparator_pin, GPIO.IN)
+
+def decimal_to_binary_list(value):
+    return [int(bit) for bit in bin(value)[2:].zfill(8)]
+
+def adc():
+    for value in range(256): 
+        bits = decimal_to_binary_list(value)
+        GPIO.output(dac, bits)
+        GPIO.output(troyka_pin, 1)  
+        time.sleep(0.01)  
+
+        if GPIO.input(comparator_pin) == 1:
+            return value
+
+    return 0  
+
+try:
+    while True:
+        digital_value = adc()  
+        voltage = digital_value * (3.3 / 255)  
+        print(f"Цифровое значение: {digital_value}, Напряжение: {voltage:.2f} V")
+
+except KeyboardInterrupt:
+    pass  
+
+finally:
+    GPIO.output(dac, 0)  
+    GPIO.cleanup()
