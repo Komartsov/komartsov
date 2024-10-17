@@ -1,63 +1,109 @@
 import matplotlib.pyplot as plt
-import RPi.GPIO as gp
+import RPi.GPIO as GPIO
 import time
-gp.setmode(gp.BCM)
-gp.setwarnings(False)
+def ten_to_bin(N): #перевод в биты
+    s = ''
+    while N > 0:
+        s += str(N%2)
+        N = N//2
+    s = s[::-1]
+    s = (8- len(s))*"0" + s
+    return s
 
-dac = [6, 12, 5, 0, 1, 7, 11, 8]
-leds = [9, 10, 22, 27, 17, 4, 3, 2]
-gp.setup(dac, gp.OUT)
-gp.setup(leds, gp.OUT)
-comp = 24
+GPIO.setwarnings(False) #обьевляем переменные и пины малинки
+GPIO.setmode(GPIO.BCM)
 troyka = 13
-gp.setup(comp, gp.OUT)
-gp.setup(troyka, gp.OUT, initial=1)
+comp = 14
+dac = [8,11,7,1,0,5,12,6]
+GPIO.setup(dac, GPIO.OUT)
+GPIO.setup(comp, GPIO.IN)
+GPIO.setup(troyka, GPIO.OUT)
+GPIO.output(troyka, 1)
+leds = [2,3,4,17,27,22,10,9]
+GPIO.setup(leds, GPIO.OUT)
 
-def ddouble(n):
-    num_str = bin(n)[2:]
-    num = list(map(int, num_str))
-    num = num[::-1]
-    for i in range(7, len(num)-1, -1):
-        num.append(0)
-    return num
-
-def acd():
-    ww = 0
+def adc(): #
+    number = 0
+    s = [0,0,0,0,0,0,0,0]
     for i in range(8):
-        step = 2**(7 - i)
-        gp.output(dac, ddouble(ww + step))
+        s[i] = 1
+        GPIO.output(dac, s)
         time.sleep(0.001)
-        volt = gp.input(comp)
-        if volt == 0:
-            ww += step
-    return ww
-voltage = []
-try:
-    start = time.time()
-    while time.time() <= start + 7.6:
-        voltage.append(acd())
-        gp.output(leds, ddouble(acd()))
-        print(acd())
-    finish = time.time()
-    delta_t = (finish - start)/len(voltage)
-    s_t = 1/(delta_t)
-    step = 1*3.3/256
-    stime = [(str(s_t) + " частота дискретизации"), (str(step) + " шаг квантования")]
+        if GPIO.input(comp) == 0:
+            number += s[i]*( 2**(7-i) )
+            continue
+        if GPIO.input(comp) == 1:
+            s[i] = 0
+            number += s[i]*( 2**(7-i) )
+            continue
+    return number*3.3/255
+        
+measure = [0] #запись в файлы и обьявление переменных
+times = [0]
+settings = open("settings.txt", "w")
+measure_of_voltage_up = open("data.txt", "w")
+measure_of_voltage_down = open("data.txt", "w")
+volt = 0
+try: #функция времени
+    while volt < 3.15:
+        start_time = time.time()
+        volt = adc()
+        voltage = volt/3.3
+        for i in range(8):
+            if (i+1)/8 < voltage:
+                GPIO.output(leds[i], 1)
+            else:
+                GPIO.output(leds[i],0)
+        time.sleep(0.05)
+        finish_time = time.time()
+        d_time = (finish_time - start_time)
+        measure.append(volt)
+        times.append(times[-1] + d_time)
+        print(volt)
+    
+    
+    for i in range(len(times)):
+        if measure[i] == 0:
+            measure.pop(0)
+            times.pop(0)
+        else:
+            break
+    for i in range(len(measure)):
+        measure_of_voltage_up.write(str(int(measure[i] * 255/3.3)) +  '\n')
+    measure_of_voltage_up.close()
 
-    voltage_str = [str(item) for item in voltage]
-    with open("data.txt", "w") as outfile:
-        outfile.write("\n".join(voltage_str))
+    settings.write("Средняя частота дискретизации = " + str( len(times)/times[-1]) + "1/c" + "\n" + "Шаг квантования АЦП = 3.3/255 В = 0.013 В" )
+    settings.close()
 
-    with open("settings.txt", "w") as outfile:
-        outfile.write("\n".join(stime))
+    plt.plot(times, measure)
+    plt.show()
+    n = input()
+    measure = [0]
+    times = [0]
+    GPIO.output(troyka, 0)
+    while volt > 0:
+        start_time = time.time()
+        volt = adc()
+        time.sleep(0.05)
+        finish_time = time.time()
+        d_time = (finish_time - start_time)
+        measure.append(volt)
+        times.append(times[-1] + d_time)
+        print(volt)
+    for i in range(len(times)):
+        if measure[i] == 0:
+            measure.pop(0)
+            times.pop(0)
+        else:
+            break
+    for i in range(len(measure)):
+        measure_of_voltage_down.write(str(measure[i] * 255/3.3) + " " + str(times[i])+  '\n')
+    measure_of_voltage_down.close()
+
+    
 
 finally:
-    null = [0, 0, 0, 0, 0, 0, 0, 0]
-    gp.output(leds, null)
-    gp.output(dac, null)
-    gp.output(comp, 0)
-    gp.output(troyka, 0)
-    gp.cleanup()
+    GPIO.cleanup()
 
-plt.plot(voltage)
+plt.plot(times, measure)
 plt.show()
