@@ -1,0 +1,24 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import(AutoMinorLocator)
+with open ("settings.txt", "r") as settings:
+    tmp = [float(i) for i in settings.read().split("\n")]
+data_array = np.loadtxt("data.txt", dtype=int)
+data_array = data_array*0.0134
+fig, ax = plt.subplots(figsize=(16, 10), dpi=400)
+ax.set_title("Процесс зарядки и разрядки конденсатора в RC-цепочке")
+ax.set_ylabel("Напряжение, В")
+ax.set_xlabel("Время, с")
+ax.set_ylim(0, 3.5)
+x=np.arange(898)
+ax.set_xlim(0, 10)
+ax.grid (which="major")
+ax.grid (which="minor", linestyle="--", color="gray", linewidth=0.5)
+ax.xaxis.set_minor_locator(AutoMinorLocator())
+ax.yaxis.set_minor_locator(AutoMinorLocator())
+#ax.set_xscale('linear, **0.011')
+#t=text.Text()
+ax.legend(title='Время заряда 4,2 с \n Время разрядки 5,8 с')
+ax.plot(x*0.011, data_array, 'o-r', ms=3)
+fig.savefig("test.svg")
+plt.show()
